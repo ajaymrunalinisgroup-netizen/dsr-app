@@ -307,6 +307,7 @@ function renderVisits(){
     const dupIdx = findDuplicateVisit(idx);
     const isDup = dupIdx !== -1;
     const contactWarn = (v.contact && !contactOk) || isDup;
+    const statusWarn = v.parlour && v.parlour.trim() && !v.status;
     const card = document.createElement('div');
     card.className = 'visit-card';
     card.innerHTML = `
@@ -321,13 +322,15 @@ function renderVisits(){
       <input type="text" value="${escapeHtml(v.area)}" placeholder="e.g. Teli Galli"
         onchange="updateVisitField(${idx},'area',this.value)">
       <label>Parlour Status</label>
-      <select onchange="updateVisitField(${idx},'status',this.value)">
+      <select style="${statusWarn ? 'border-color:var(--warn);' : ''}"
+        onchange="updateVisitField(${idx},'status',this.value)">
         <option value="" ${!v.status ? 'selected' : ''}>-- Select --</option>
         <option value="Top 50" ${v.status==='Top 50' ? 'selected' : ''}>Top 50</option>
         <option value="Top 30" ${v.status==='Top 30' ? 'selected' : ''}>Top 30</option>
         <option value="New" ${v.status==='New' ? 'selected' : ''}>New</option>
         <option value="Other" ${v.status==='Other' ? 'selected' : ''}>Other</option>
       </select>
+      ${statusWarn ? '<div class="warn-text" style="margin-top:2px;">Select a Parlour Status - required before submitting</div>' : ''}
       <label>Contact No. (10 digits)</label>
       <input type="tel" inputmode="numeric" maxlength="10" value="${escapeHtml(v.contact)}" placeholder="10-digit mobile"
         style="${contactWarn ? 'border-color:var(--warn);' : ''}"
@@ -455,6 +458,10 @@ function generateFile(){
   if(state.visits.length === 0){ alert('Please add at least one parlour visit.'); return; }
   for(const [i,v] of state.visits.entries()){
     if(!v.parlour.trim()){ alert('Every visit needs a Parlour Name.'); return; }
+    if(!v.status || !v.status.trim()){
+      alert(`Visit ${i+1} (${v.parlour}) needs a Parlour Status selected before you can submit.`);
+      return;
+    }
     if(!v.contact || v.contact.length !== 10){
       alert(`Visit ${i+1} (${v.parlour}) needs a full 10-digit mobile number before you can submit.`);
       return;

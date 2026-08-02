@@ -21,11 +21,11 @@
   .section{margin:14px 16px; background:var(--panel); border-radius:14px; padding:14px; border:1px solid var(--border);}
   .section h2{font-size:13px; text-transform:uppercase; letter-spacing:.5px; color:var(--text-dim); margin:0 0 10px;}
   label{display:block; font-size:12px; color:var(--text-dim); margin:8px 0 4px;}
-  input[type=text], input[type=date], input[type=tel]{
+  input[type=text], input[type=date], input[type=tel], select{
     width:100%; padding:11px 12px; border-radius:9px; border:1px solid var(--border);
     background:#0d0d1f; color:var(--text); font-size:15px;
   }
-  input:focus{outline:2px solid var(--btn);}
+  input:focus, select:focus{outline:2px solid var(--btn);}
   .btn{
     display:inline-flex; align-items:center; justify-content:center; gap:6px;
     background:var(--btn); color:#fff; border:none; border-radius:10px;
@@ -81,7 +81,7 @@
 <div class="section">
   <h2>Your Details</h2>
   <label>Name of Representative</label>
-  <input type="text" id="empName" placeholder="e.g. Priti Kadam">
+  <input type="text" id="empName" placeholder="e.g. Kailas Nakil">
 
   <label>Date</label>
   <input type="date" id="empDate">
@@ -94,11 +94,15 @@
 
   <label>Distributor Name</label>
   <input type="text" id="distName" placeholder="e.g. Aftab Enterprises">
+
+  <label>Manager Name (if accompanied today)</label>
+  <input type="text" id="managerName" placeholder="Leave blank if none">
 </div>
 
 <div class="section">
   <h2>Parlour Visits (max 15/day)</h2>
   <div id="visitList"></div>
+  <datalist id="parlourNamesList"></datalist>
   <div class="empty" id="emptyVisits">No visits added yet. Tap below to add your first parlour visit.</div>
   <button class="btn secondary" onclick="addVisit()">+ Add Parlour Visit</button>
   <div class="warn-text" id="visitWarn" style="display:none;">Maximum 15 visits per day reached. Contact office if you visited more.</div>
@@ -106,6 +110,7 @@
 
 <div class="fixed-bottom">
   <button class="btn" onclick="generateFile()">Generate &amp; Share DSR File</button>
+  <button class="btn secondary" id="startNewDayBtn" style="display:none; margin-top:8px;" onclick="startNewDay()">Start New Day (clears this screen)</button>
 </div>
 
 <!-- Item picker modal -->
@@ -128,14 +133,25 @@
 <script>
 const PRODUCTS = [{"name":"AHA Smooth-N-Glow Face Wash","division":"Skin Care","pack":"50ml","price":109.19},{"name":"AHA Smooth-N-Glow Face Wash","division":"Skin Care","pack":"100ml","price":191.51},{"name":"Aloeweed Anti Oxident Micro Nourishing Gel","division":"Skin Care","pack":"100 g","price":191.51},{"name":"Aloeweed Anti Oxident Micro Nourishing Gel","division":"Skin Care","pack":"250g","price":411.0},{"name":"Aloeweed Anti Oxident Micro Nourishing Gel","division":"Skin Care","pack":"1000g","price":1371.28},{"name":"BB Cream","division":"Skin Care","pack":"8 g","price":95.1},{"name":"Care Touch Primer","division":"Skin Care","pack":"100g","price":480.13},{"name":"Cetalife Cleansing Lotion","division":"Skin Care","pack":"100ml","price":178.34},{"name":"Cetalife Cleansing Lotion","division":"Skin Care","pack":"200ml","price":318.26},{"name":"Dermo De-Tox Skin Detoxyfying Pack","division":"Skin Care","pack":"30 g","price":137.18},{"name":"Dermo De-Tox Skin Detoxyfying Pack","division":"Skin Care","pack":"100g","price":411.0},{"name":"Dermo De-Tox Skin Detoxyfying Pack","division":"Skin Care","pack":"500g","price":1947.43},{"name":"Dermo-Detox Charcoal Face Wash","division":"Skin Care","pack":"100ml","price":162.5},{"name":"Gaurangi Sunscreen Lotion","division":"Skin Care","pack":"100ml","price":246.38},{"name":"Genta-Light Skin Brightening Scrub","division":"Skin Care","pack":"50g","price":164.07},{"name":"Glow n Polish Green Tea Saffron deep clean Face wash","division":"Skin Care","pack":"100ml","price":244.04},{"name":"Gold Foil","division":"Skin Care","pack":"1 Nos","price":5300.45},{"name":"Herb-N-Scrub pack","division":"Skin Care","pack":"500g","price":754.5},{"name":"Hydrasmooth hydrating gel","division":"Skin Care","pack":"50ml","price":315.52},{"name":"Hydrasmooth hydrating gel","division":"Skin Care","pack":"100ml","price":493.31},{"name":"Hydrasmooth hydrating gel","division":"Skin Care","pack":"500ml","price":2247.05},{"name":"Inno-White Lotion","division":"Skin Care","pack":"50g","price":218.94},{"name":"Intense Beauty Pro-Perfect Radiance Tan Care Lotion","division":"Skin Care","pack":"40ml","price":260.89},{"name":"Intense Beauty Pro-Perfect Radiance Tan Care Lotion","division":"Skin Care","pack":"100ml","price":488.61},{"name":"Intense Firming Moisturizer","division":"Skin Care","pack":"100ml","price":434.26},{"name":"Intense Firming Toning Drops","division":"Skin Care","pack":"100ml","price":488.61},{"name":"Intense Firming Toning Drops","division":"Skin Care","pack":"25ml","price":189.69},{"name":"Intense Firming Toning Drops","division":"Skin Care","pack":"500ml","price":2225.65},{"name":"Ketaki Daywear Ultra Potent Beautifying Antioxidant Cream","division":"Skin Care","pack":"40g","price":164.07},{"name":"Lactic Glyco AHA Peel","division":"Skin Care","pack":"25ml","price":1097.45},{"name":"Liposoft Moisturizer with SPF","division":"Skin Care","pack":"100ml","price":178.34},{"name":"Madhugandha Nourishing Cream","division":"Skin Care","pack":"50g","price":273.82},{"name":"Madhugandha Nourishing Cream","division":"Skin Care","pack":"250g","price":1056.31},{"name":"Mat N Bright Cream","division":"Skin Care","pack":"50g","price":246.38},{"name":"Mat N Bright Cream","division":"Skin Care","pack":"250g","price":1111.17},{"name":"Microderma Skin Scrub","division":"Skin Care","pack":"60g","price":616.63},{"name":"Microderma Skin Scrub","division":"Skin Care","pack":"200g","price":1886.26},{"name":"Mrunalini-30 Sunscreen Lotion","division":"Skin Care","pack":"100ml","price":246.38},{"name":"N Light Pack","division":"Skin Care","pack":"30g","price":109.19},{"name":"N Light Pack","division":"Skin Care","pack":"200g","price":373.13},{"name":"Nirmal Exfoliating Lotion","division":"Skin Care","pack":"100ml","price":241.44},{"name":"Nirmal Exfoliating Lotion","division":"Skin Care","pack":"400ml","price":869.74},{"name":"N-Light Cleanser","division":"Skin Care","pack":"100g","price":162.5},{"name":"N-Light Cleanser","division":"Skin Care","pack":"500g","price":747.31},{"name":"Peeling Brush (06 units/Pack)","division":"Skin Care","pack":"Pack of 6","price":342.96},{"name":"Purusham De-Grease Exfoliating Face Wash","division":"Skin Care","pack":"100ml","price":162.5},{"name":"Purusham Genta Light Loction","division":"Skin Care","pack":"100ml","price":434.26},{"name":"Rahul Phate's Hydra Aqua Brightening Gel","division":"Skin Care","pack":"40g","price":162.5},{"name":"Rahul Phate's Hydra Aqua Brightening Gel","division":"Skin Care","pack":"250g","price":733.19},{"name":"Re- care Antioxidant serum","division":"Skin Care","pack":"25ml","price":328.68},{"name":"Re- care Antioxidant serum","division":"Skin Care","pack":"50ml","price":535.02},{"name":"Resillience Pink Rose & Licorice Face & Neck Mask","division":"Skin Care","pack":"40 g","price":162.5},{"name":"Roopada Oil Control Peel Face Pack","division":"Skin Care","pack":"75g","price":218.94},{"name":"Roopada Oil Control Peel Face Pack","division":"Skin Care","pack":"300g","price":767.67},{"name":"Rose Milk Cream","division":"Skin Care","pack":"50g","price":219.5},{"name":"Rose Milk Cream","division":"Skin Care","pack":"250g","price":850.54},{"name":"Saffron Multi diffence - UV Sun care Sunscreen","division":"Skin Care","pack":"100 ml","price":244.04},{"name":"Skin Clear  Peel","division":"Skin Care","pack":"50ml","price":1371.11},{"name":"Soft N Smooth Emollient Cream","division":"Skin Care","pack":"50g","price":260.63},{"name":"SPA Mrugank","division":"Skin Care","pack":"50g","price":273.82},{"name":"SPA Mrugank","division":"Skin Care","pack":"250g","price":1056.31},{"name":"SPA Pranav Gel","division":"Skin Care","pack":"50g","price":271.62},{"name":"SPA Smoothie Body Wash","division":"Skin Care","pack":"200ml","price":164.07},{"name":"SPA Smoothie Body Wash","division":"Skin Care","pack":"1000ml","price":740.24},{"name":"Tejasvini Skin Polish","division":"Skin Care","pack":"100ml","price":383.57},{"name":"Tejo Diamond Face Mask","division":"Skin Care","pack":"50g","price":164.62},{"name":"Tejo Diamond Face Mask","division":"Skin Care","pack":"250g","price":712.8},{"name":"Tejo Gold Face Pack","division":"Skin Care","pack":"50g","price":216.86},{"name":"Tejo Gold Gel","division":"Skin Care","pack":"50g","price":438.43},{"name":"Tejo Gold Gel","division":"Skin Care","pack":"250g","price":1974.87},{"name":"Tejo Pearl Cream","division":"Skin Care","pack":"50g","price":218.94},{"name":"Tejo Pearl Cream","division":"Skin Care","pack":"250g","price":987.16},{"name":"Ulticare Beauty Concentrate Spot Care Serum","division":"Skin Care","pack":"100ml","price":923.41},{"name":"Ulticare Beauty Concentrate Spot Care Serum","division":"Skin Care","pack":"25ml","price":352.73},{"name":"Ulticare Concentrate Radiant Beauty Spot Care Cream","division":"Skin Care","pack":"40 g","price":325.55},{"name":"Ulticare Deep Pore Perfectly clean Face Wash","division":"Skin Care","pack":"100ml","price":189.69},{"name":"Ulticare Sun Block","division":"Skin Care","pack":"40g","price":233.22},{"name":"Vita Amino Mask","division":"Skin Care","pack":"50g","price":260.63},{"name":"Vitamin-c.peel","division":"Skin Care","pack":"100ml","price":438.43},{"name":"Ulticare Perfumed Hand & Body Lotion with SPF","division":"Skin Care","pack":"200 ml","price":216.86},{"name":"Hyaluronic & Niacinamide Protein Facial","division":"Skin Care","pack":"Kit","price":3086.6},{"name":"Acne Pimples Treatment","division":"Skin Care","pack":"Kit","price":2400.69},{"name":"Bio - Active Skin Reset Facial","division":"Skin Care","pack":"Kit","price":4395.55},{"name":"Hyaluronic & Niacinamide Protein","division":"Skin Care","pack":"Combo","price":733.92},{"name":"Acne Pimples","division":"Skin Care","pack":"Combo","price":617.32},{"name":"Ana-Zoom Coconut Care","division":"Tricho Care","pack":"250g","price":430.75},{"name":"Ana-Zoom Hair Cleanser(Arginine-Pentothenate Shampoo)","division":"Tricho Care","pack":"200ml","price":323.75},{"name":"Ana-Zoom Hair Cleanser(Arginine-Pentothenate Shampoo)","division":"Tricho Care","pack":"1000ml","price":1458.41},{"name":"Ana-Zoom Scalp Care(Arginine-Pentothenate Serum)","division":"Tricho Care","pack":"100ml","price":356.67},{"name":"Hair Comb kit","division":"Tricho Care","pack":"Kit","price":92.5},{"name":"Keratosmooth Hair Root & Scalp Nourishing Pack","division":"Tricho Care","pack":"200g","price":219.5},{"name":"Keratosmooth Hair root & scalp nourising gel","division":"Tricho Care","pack":"100ml","price":218.94},{"name":"Lacti Glyco  AHA  Scalp Wash","division":"Tricho Care","pack":"100ml","price":191.51},{"name":"Luster-X Hair Serum","division":"Tricho Care","pack":"100ml","price":246.38},{"name":"Luster-X Hair Serum","division":"Tricho Care","pack":"400ml","price":883.46},{"name":"Psoria Shrink Skin Softner Cream","division":"Tricho Care","pack":"100g","price":260.63},{"name":"Psoria Shrink Skin Softner Cream","division":"Tricho Care","pack":"250g","price":548.18},{"name":"Rahul Phate's Advanced Hair Conditioner","division":"Tricho Care","pack":"250g","price":328.68},{"name":"Rahul Phate's No Frizz Spray","division":"Tricho Care","pack":"100ml","price":328.68},{"name":"Scalp clean peel (20 Unit)*","division":"Tricho Care","pack":"100ml","price":1920.55},{"name":"Sebo - Rough","division":"Tricho Care","pack":"200g","price":219.5},{"name":"Sensicure Shampoo","division":"Tricho Care","pack":"200ml","price":231.25},{"name":"Sensicure Shampoo","division":"Tricho Care","pack":"1000ml","price":1036.0},{"name":"Strenght-N-Shine Hair Serum","division":"Tricho Care","pack":"80ml","price":328.68},{"name":"Tejo Orange Cream","division":"Tricho Care","pack":"50g","price":164.07},{"name":"Tejo Orange Cream","division":"Tricho Care","pack":"250g","price":740.79},{"name":"Tricho Care Scalp Stimulent Hydrating Gel","division":"Tricho Care","pack":"100g","price":164.07},{"name":"Tricho Care Scalp Stimulent Hydrating Gel","division":"Tricho Care","pack":"250g","price":383.57},{"name":"Tricho-Moist Scalp Moisturiser","division":"Tricho Care","pack":"100ml","price":191.51},{"name":"Volumn Care Shampoo","division":"Tricho Care","pack":"200ml","price":231.25},{"name":"Volumn Care Shampoo","division":"Tricho Care","pack":"1000ml","price":1036.0},{"name":"Hair Fall Retarding Cosmetic In-Salon Treatment","division":"Tricho Care","pack":"Kit","price":4115.47},{"name":"Hair Fall Retarding Cosmetic","division":"Tricho Care","pack":"Combo","price":788.79},{"name":"Amino Vellus Boost","division":"Nutraceuticals","pack":"15g","price":658.6},{"name":"Andro-Balance (Khus With Micro-Support)","division":"Nutraceuticals","pack":"30 Cap","price":492.72},{"name":"Anti-Oxidant Max","division":"Nutraceuticals","pack":"30 Cap","price":755.41},{"name":"Cocktail Glutathione Plus","division":"Nutraceuticals","pack":"10.3g","price":986.67},{"name":"Collagen Replenish","division":"Nutraceuticals","pack":"100g","price":959.54},{"name":"Densa Plus","division":"Nutraceuticals","pack":"30Cap","price":746.16},{"name":"E Peel Pineapple Plus","division":"Nutraceuticals","pack":"9.4g","price":658.6},{"name":"Fuel G Cube","division":"Nutraceuticals","pack":"200g","price":932.29},{"name":"Hyaluronic Plus","division":"Nutraceuticals","pack":"30 Cap","price":613.59},{"name":"Inno-White (Glutathione) Capsules","division":"Nutraceuticals","pack":"30 Cap","price":1536.45},{"name":"L- Arginine Plus","division":"Nutraceuticals","pack":"30 Cap","price":613.59},{"name":"Melazone","division":"Nutraceuticals","pack":"60 Cap","price":542.05},{"name":"Meta- Fresh","division":"Nutraceuticals","pack":"50g","price":400.84},{"name":"Meta zoom","division":"Nutraceuticals","pack":"60 cap","price":1079.16},{"name":"Microvital","division":"Nutraceuticals","pack":"60 cap","price":862.71},{"name":"Pro-Femi (PCOS Care)","division":"Nutraceuticals","pack":"100g","price":931.17},{"name":"Reviva Resveratrol Plus","division":"Nutraceuticals","pack":"11g","price":877.52},{"name":"Root Strength (Follicle and Hair Support) (For Men)","division":"Nutraceuticals","pack":"30 Cap","price":739.37},{"name":"Collagen Replenish","division":"Nutraceuticals","pack":"Offer","price":1199.41},{"name":"Reviva Resveratrol Plus","division":"Nutraceuticals","pack":"Offer","price":1096.89},{"name":"Amino Vellus Boost","division":"Nutraceuticals","pack":"Offer","price":823.25}];
 const STORAGE_KEY = 'dsr_draft_v1';
+const PARLOUR_DIR_KEY = 'dsr_parlour_directory_v1'; // persists ACROSS days (not cleared like the daily draft)
+const EMPLOYEE_NAME_KEY = 'dsr_employee_name_v1'; // persists PERMANENTLY, independent of the daily draft
 let state = loadDraft() || freshState();
 let activeVisitIdx = null;
 let pendingQty = {}; // productIdx -> qty being staged in picker
 
+function getSavedEmployeeName(){
+  try{ return localStorage.getItem(EMPLOYEE_NAME_KEY) || ''; }catch(e){ return ''; }
+}
+function saveEmployeeName(name){
+  try{
+    if(name && name.trim()) localStorage.setItem(EMPLOYEE_NAME_KEY, name.trim());
+  }catch(e){}
+}
+
 function freshState(){
   return {
-    name:'', date: todayISO(), areaTour:'', areaWorked:'', distName:'',
-    visits: []
+    name: getSavedEmployeeName(), date: todayISO(), areaTour:'', areaWorked:'', distName:'', managerName:'',
+    visits: [], hasSubmitted: false
   };
 }
 function todayISO(){
@@ -144,16 +160,58 @@ function todayISO(){
 }
 function saveDraft(){
   try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){}
+  saveEmployeeName(state.name); // name always persists permanently, every time it's saved
 }
 function loadDraft(){
   try{
     const raw = localStorage.getItem(STORAGE_KEY);
     if(!raw) return null;
     const parsed = JSON.parse(raw);
-    // only restore if same calendar date as today (avoid mixing days)
-    if(parsed.date === todayISO()) return parsed;
+    // only restore the FULL draft (visits etc.) if it's still today - but the
+    // name itself is always taken from permanent storage regardless, in case
+    // the saved draft's name is older/blank for some reason.
+    if(parsed.date === todayISO()){
+      parsed.name = parsed.name || getSavedEmployeeName();
+      return parsed;
+    }
     return null;
   }catch(e){ return null; }
+}
+
+// ---------------- Parlour Directory (remembers Area/Contact per parlour, across days) ----------------
+function getParlourDirectory(){
+  try{ return JSON.parse(localStorage.getItem(PARLOUR_DIR_KEY) || '{}'); }catch(e){ return {}; }
+}
+function saveParlourDirectory(dir){
+  try{ localStorage.setItem(PARLOUR_DIR_KEY, JSON.stringify(dir)); }catch(e){}
+}
+function parlourKey(name){
+  return (name || '').trim().toLowerCase();
+}
+function upsertParlourDirectory(name, area, contact, status){
+  const key = parlourKey(name);
+  if(!key) return;
+  const dir = getParlourDirectory();
+  const existing = dir[key] || {};
+  dir[key] = {
+    displayName: name.trim(),
+    area: area || existing.area || '',
+    contact: contact || existing.contact || '',
+    status: status || existing.status || ''
+  };
+  saveParlourDirectory(dir);
+  renderParlourDatalist();
+}
+function lookupParlourDirectory(name){
+  const dir = getParlourDirectory();
+  return dir[parlourKey(name)] || null;
+}
+function renderParlourDatalist(){
+  const el = document.getElementById('parlourNamesList');
+  if(!el) return;
+  const dir = getParlourDirectory();
+  const names = Object.values(dir).map(e => e.displayName);
+  el.innerHTML = names.map(n => `<option value="${escapeHtml(n)}">`).join('');
 }
 
 function initFields(){
@@ -162,9 +220,11 @@ function initFields(){
   document.getElementById('areaTour').value = state.areaTour;
   document.getElementById('areaWorked').value = state.areaWorked;
   document.getElementById('distName').value = state.distName;
-  ['empName','empDate','areaTour','areaWorked','distName'].forEach(id=>{
+  document.getElementById('managerName').value = state.managerName;
+  ['empName','empDate','areaTour','areaWorked','distName','managerName'].forEach(id=>{
     document.getElementById(id).addEventListener('input', onFieldChange);
   });
+  renderParlourDatalist();
 }
 function onFieldChange(){
   state.name = document.getElementById('empName').value;
@@ -172,6 +232,7 @@ function onFieldChange(){
   state.areaTour = document.getElementById('areaTour').value;
   state.areaWorked = document.getElementById('areaWorked').value;
   state.distName = document.getElementById('distName').value;
+  state.managerName = document.getElementById('managerName').value;
   saveDraft();
   renderStats();
 }
@@ -181,7 +242,7 @@ function addVisit(){
     document.getElementById('visitWarn').style.display='block';
     return;
   }
-  state.visits.push({parlour:'', contact:'', area:'', items:{}}); // items: {productIdx: qty}
+  state.visits.push({parlour:'', contact:'', area:'', status:'', items:{}}); // items: {productIdx: qty}
   saveDraft();
   renderVisits();
   openPicker(state.visits.length-1, true);
@@ -194,14 +255,27 @@ function removeVisit(idx){
   renderStats();
 }
 function updateVisitField(idx, field, value){
+  const v = state.visits[idx];
   if(field === 'contact'){
-    const digits = value.replace(/\D/g, '').slice(0, 10); // keep only digits, max 10
-    state.visits[idx][field] = digits;
-    saveDraft();
-    renderVisits();
-    return;
+    value = value.replace(/\D/g, '').slice(0, 10); // keep only digits, max 10
   }
-  state.visits[idx][field] = value;
+  v[field] = value;
+
+  if(field === 'parlour'){
+    // auto-fill Area/Contact/Status from a previously visited parlour with the same name,
+    // but only into fields that are currently blank - never overwrite what's typed
+    const match = lookupParlourDirectory(value);
+    if(match){
+      if(!v.area) v.area = match.area;
+      if(!v.contact) v.contact = match.contact;
+      if(!v.status) v.status = match.status;
+    }
+  }
+  // remember this parlour's details for next time (any field that has a name to key on)
+  if(v.parlour && v.parlour.trim()){
+    upsertParlourDirectory(v.parlour, v.area, v.contact, v.status);
+  }
+
   saveDraft();
   renderVisits();
 }
@@ -241,8 +315,19 @@ function renderVisits(){
         <span><span class="del-link" onclick="removeVisit(${idx})">Remove</span></span>
       </div>
       <label style="margin-top:0;">Parlour Name</label>
-      <input type="text" value="${escapeHtml(v.parlour)}" placeholder="Parlour name"
+      <input type="text" list="parlourNamesList" value="${escapeHtml(v.parlour)}" placeholder="Parlour name (start typing to see past parlours)"
         onchange="updateVisitField(${idx},'parlour',this.value)">
+      <label>Area / Locality (specific to this parlour)</label>
+      <input type="text" value="${escapeHtml(v.area)}" placeholder="e.g. Teli Galli"
+        onchange="updateVisitField(${idx},'area',this.value)">
+      <label>Parlour Status</label>
+      <select onchange="updateVisitField(${idx},'status',this.value)">
+        <option value="" ${!v.status ? 'selected' : ''}>-- Select --</option>
+        <option value="Top 50" ${v.status==='Top 50' ? 'selected' : ''}>Top 50</option>
+        <option value="Top 30" ${v.status==='Top 30' ? 'selected' : ''}>Top 30</option>
+        <option value="New" ${v.status==='New' ? 'selected' : ''}>New</option>
+        <option value="Other" ${v.status==='Other' ? 'selected' : ''}>Other</option>
+      </select>
       <label>Contact No. (10 digits)</label>
       <input type="tel" inputmode="numeric" maxlength="10" value="${escapeHtml(v.contact)}" placeholder="10-digit mobile"
         style="${contactWarn ? 'border-color:var(--warn);' : ''}"
@@ -387,12 +472,13 @@ function generateFile(){
   const ddmmyyyy = pad2(d.getDate())+'/'+pad2(d.getMonth()+1)+'/'+d.getFullYear();
 
   // Build AOA (array of arrays), 1-indexed rows/cols mapped to 0-indexed
-  // Extra column at the end: "CALL SALE (Rs)" per visit - informational only.
-  // Its pack-size row (row 14) is left blank on purpose so the DSR Consolidator's
-  // column-matching logic (which requires a non-blank pack size) never mistakes
-  // it for a real product column.
-  const NCOLS = 4 + PRODUCTS.length + 1; // A-D fixed + one col per product + Call Sale col
+  // Extra columns at the end: "CALL SALE (Rs)" and "PARLOUR STATUS" per visit -
+  // informational only. Their pack-size row (row 14) is left blank on purpose
+  // so the DSR Consolidator's column-matching logic (which requires a
+  // non-blank pack size) never mistakes them for real product columns.
+  const NCOLS = 4 + PRODUCTS.length + 2; // A-D fixed + one col per product + Call Sale + Status
   const CALL_SALE_COL = 4 + PRODUCTS.length;
+  const STATUS_COL = 4 + PRODUCTS.length + 1;
   const aoa = [];
   for(let r=0;r<31;r++) aoa.push(new Array(NCOLS).fill(null));
 
@@ -433,6 +519,8 @@ function generateFile(){
   aoa[9][4] = 'T.C.';
   aoa[9][5] = tc;
 
+  aoa[10][0] = 'MANAGER NAME';
+  aoa[10][2] = state.managerName;
   aoa[10][4] = 'P.C.';
   aoa[10][5] = pc;
 
@@ -444,6 +532,7 @@ function generateFile(){
     aoa[14][col] = p.price;
   });
   aoa[12][CALL_SALE_COL] = 'CALL SALE (Rs)'; // header only - pack row left blank intentionally
+  aoa[12][STATUS_COL] = 'PARLOUR STATUS'; // header only - pack row left blank intentionally
 
   // visit rows 16-30 -> index 15..29 (15 rows max)
   state.visits.forEach((v, vIdx)=>{
@@ -456,6 +545,7 @@ function generateFile(){
       aoa[r][4+parseInt(pIdx)] = qty;
     }
     aoa[r][CALL_SALE_COL] = visitSale(v);
+    aoa[r][STATUS_COL] = v.status || '';
   });
 
   // TOTAL row 31 -> index 30
@@ -482,8 +572,7 @@ function generateFile(){
       title: 'DSR ' + filename,
       text: `DSR for ${state.name} - ${ddmmyyyy}`
     }).then(()=>{
-      showToast('Shared! You can also keep filling tomorrow\'s DSR.');
-      clearDraftAfterSubmit();
+      markSubmitted(filename);
     }).catch(()=>{
       downloadBlob(blob, filename);
     });
@@ -497,11 +586,21 @@ function downloadBlob(blob, filename){
   a.href = url; a.download = filename;
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  showToast('File saved: ' + filename);
-  clearDraftAfterSubmit();
+  markSubmitted(filename);
 }
-function clearDraftAfterSubmit(){
-  // keep name for convenience but clear the rest for next day's fresh entry
+function markSubmitted(filename){
+  // IMPORTANT: data is intentionally NOT cleared here. If you spot a mistake,
+  // just fix it and tap Generate & Share again - it re-creates the SAME
+  // filename (same day, same name), so the office import safely replaces
+  // today's report instead of creating a duplicate. Only "Start New Day"
+  // clears the form, and that's a deliberate, explicit action.
+  state.hasSubmitted = true;
+  saveDraft();
+  renderStartNewDayButton();
+  showToast(`Saved: ${filename}. Made a mistake? Fix it and tap Generate & Share again.`);
+}
+function startNewDay(){
+  if(!confirm("Start a new day? Today's entries will be cleared from this screen.\n(Anything already generated & shared is safe - this only clears what's on screen.)")) return;
   const keepName = state.name;
   localStorage.removeItem(STORAGE_KEY);
   state = freshState();
@@ -509,18 +608,25 @@ function clearDraftAfterSubmit(){
   initFields();
   renderVisits();
   renderStats();
+  renderStartNewDayButton();
+}
+function renderStartNewDayButton(){
+  const el = document.getElementById('startNewDayBtn');
+  if(!el) return;
+  el.style.display = state.hasSubmitted ? 'block' : 'none';
 }
 function showToast(msg){
   const t = document.getElementById('toast');
   t.textContent = msg;
   t.style.display = 'block';
-  setTimeout(()=>{ t.style.display='none'; }, 3500);
+  setTimeout(()=>{ t.style.display='none'; }, 4500);
 }
 
 // ---------------- Init ----------------
 initFields();
 renderVisits();
 renderStats();
+renderStartNewDayButton();
 </script>
 
 <script>

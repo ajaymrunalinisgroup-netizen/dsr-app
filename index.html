@@ -15,6 +15,9 @@
   header h1{margin:0; font-size:16px; font-weight:700;}
   header p{margin:2px 0 0; font-size:11px; color:var(--text-dim);}
   .stats{display:flex; gap:8px; padding:10px 16px; background:var(--panel); position:sticky; top:52px; z-index:19; border-bottom:1px solid var(--border);}
+  .stats-cumulative{display:flex; gap:8px; padding:8px 16px 14px; background:var(--panel); border-bottom:1px solid var(--border);}
+  .stats-cumulative .stat{background:#0d0d1f; border:1px solid var(--border);}
+  .stats-cumulative .num{color:var(--btn);}
   .stat{flex:1; background:var(--accent); border-radius:10px; padding:8px; text-align:center;}
   .stat .num{font-size:18px; font-weight:800;}
   .stat .lbl{font-size:10px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.5px;}
@@ -73,9 +76,14 @@
 </header>
 
 <div class="stats">
-  <div class="stat"><div class="num" id="statTC">0</div><div class="lbl">T.C.</div></div>
-  <div class="stat"><div class="num" id="statPC">0</div><div class="lbl">P.C.</div></div>
-  <div class="stat"><div class="num" id="statSale">0</div><div class="lbl">Sale (Rs)</div></div>
+  <div class="stat"><div class="num" id="statTC">0</div><div class="lbl">T.C. (Today)</div></div>
+  <div class="stat"><div class="num" id="statPC">0</div><div class="lbl">P.C. (Today)</div></div>
+  <div class="stat"><div class="num" id="statSale">0</div><div class="lbl">Sale (Today)</div></div>
+</div>
+<div class="stats-cumulative">
+  <div class="stat"><div class="num" id="cumTC">0</div><div class="lbl">T.C. (Month)</div></div>
+  <div class="stat"><div class="num" id="cumPC">0</div><div class="lbl">P.C. (Month)</div></div>
+  <div class="stat"><div class="num" id="cumSale">0</div><div class="lbl">Sale (Month)</div></div>
 </div>
 
 <div class="section">
@@ -86,14 +94,26 @@
   <label>Date</label>
   <input type="date" id="empDate">
 
+  <div style="display:flex; gap:10px;">
+    <div style="flex:1;">
+      <label>In Time (filled by office)</label>
+      <input type="time" id="inTime" disabled style="opacity:0.5; cursor:not-allowed;">
+    </div>
+    <div style="flex:1;">
+      <label>Out Time (filled by office)</label>
+      <input type="time" id="outTime" disabled style="opacity:0.5; cursor:not-allowed;">
+    </div>
+  </div>
+
   <label>Area on Tour Plan</label>
   <input type="text" id="areaTour" placeholder="e.g. Nashik">
 
   <label>Area Worked (today, actual)</label>
   <input type="text" id="areaWorked" placeholder="e.g. Sangvi">
 
-  <label>Distributor Name</label>
+  <label>Distributor Name *</label>
   <input type="text" id="distName" placeholder="e.g. Aftab Enterprises">
+  <div class="warn-text" id="distNameWarn" style="display:none;">Distributor Name is required</div>
 
   <label>Manager Name (if accompanied today)</label>
   <input type="text" id="managerName" placeholder="Leave blank if none">
@@ -135,6 +155,7 @@ const PRODUCTS = [{"name":"AHA Smooth-N-Glow Face Wash","division":"Skin Care","
 const STORAGE_KEY = 'dsr_draft_v1';
 const PARLOUR_DIR_KEY = 'dsr_parlour_directory_v1'; // persists ACROSS days (not cleared like the daily draft)
 const EMPLOYEE_NAME_KEY = 'dsr_employee_name_v1'; // persists PERMANENTLY, independent of the daily draft
+const MONTHLY_LOG_KEY = 'dsr_monthly_log_v1'; // persists PERMANENTLY - one submitted-day entry per date, used for cumulative stats
 let state = loadDraft() || freshState();
 let activeVisitIdx = null;
 let pendingQty = {}; // productIdx -> qty being staged in picker
@@ -150,7 +171,8 @@ function saveEmployeeName(name){
 
 function freshState(){
   return {
-    name: getSavedEmployeeName(), date: todayISO(), areaTour:'', areaWorked:'', distName:'', managerName:'',
+    name: getSavedEmployeeName(), date: todayISO(), inTime:'', outTime:'',
+    areaTour:'', areaWorked:'', distName:'', managerName:'',
     visits: [], hasSubmitted: false
   };
 }
@@ -214,13 +236,62 @@ function renderParlourDatalist(){
   el.innerHTML = names.map(n => `<option value="${escapeHtml(n)}">`).join('');
 }
 
+// ---------------- Monthly Log (cumulative T.C./P.C./Sale, persists permanently) ----------------
+function getMonthlyLog(){
+  try{ return JSON.parse(localStorage.getItem(MONTHLY_LOG_KEY) || '{}'); }catch(e){ return {}; }
+}
+function saveMonthlyLog(log){
+  try{ localStorage.setItem(MONTHLY_LOG_KEY, JSON.stringify(log)); }catch(e){}
+}
+function recordDayInLog(dateStr, tc, pc, sale){
+  // Called once a day's report is actually generated/shared. Re-submitting the
+  // same date (a correction) safely OVERWRITES that day's entry rather than
+  // double-counting it in the cumulative total.
+  if(!dateStr) return;
+  const log = getMonthlyLog();
+  log[dateStr] = { tc: tc || 0, pc: pc || 0, sale: sale || 0 };
+  saveMonthlyLog(log);
+}
+function computeCumulative(){
+  // Sum of every OTHER already-submitted day this month, plus today's LIVE
+  // (possibly not-yet-submitted) numbers - so the cumulative figure updates
+  // in real time as the rep adds visits today, without double-counting today
+  // once they do submit (today's log entry, if any, is excluded from the sum
+  // below and replaced by the live figure instead).
+  const log = getMonthlyLog();
+  const currentMonth = (state.date || todayISO()).slice(0, 7); // "YYYY-MM"
+  let tc = 0, pc = 0, sale = 0;
+  for(const [dateStr, entry] of Object.entries(log)){
+    if(dateStr.slice(0,7) === currentMonth && dateStr !== state.date){
+      tc += entry.tc; pc += entry.pc; sale += entry.sale;
+    }
+  }
+  const todayStats = computeTodayStats();
+  tc += todayStats.tc; pc += todayStats.pc; sale += todayStats.sale;
+  return { tc, pc, sale: Math.round(sale * 100) / 100 };
+}
+function computeTodayStats(){
+  const tc = state.visits.filter(v=>v.parlour.trim()!=='').length;
+  const pc = state.visits.filter(v=>Object.values(v.items).reduce((a,b)=>a+b,0) > 0).length;
+  let sale = 0;
+  state.visits.forEach(v=>{
+    for(const [pIdx, qty] of Object.entries(v.items)){
+      sale += PRODUCTS[pIdx].price * qty;
+    }
+  });
+  return { tc, pc, sale: Math.round(sale * 100) / 100 };
+}
+
 function initFields(){
   document.getElementById('empName').value = state.name;
   document.getElementById('empDate').value = state.date;
+  document.getElementById('inTime').value = state.inTime;
+  document.getElementById('outTime').value = state.outTime;
   document.getElementById('areaTour').value = state.areaTour;
   document.getElementById('areaWorked').value = state.areaWorked;
   document.getElementById('distName').value = state.distName;
   document.getElementById('managerName').value = state.managerName;
+  document.getElementById('distNameWarn').style.display = state.distName.trim() ? 'none' : 'block';
   ['empName','empDate','areaTour','areaWorked','distName','managerName'].forEach(id=>{
     document.getElementById(id).addEventListener('input', onFieldChange);
   });
@@ -229,10 +300,13 @@ function initFields(){
 function onFieldChange(){
   state.name = document.getElementById('empName').value;
   state.date = document.getElementById('empDate').value;
+  state.inTime = document.getElementById('inTime').value;
+  state.outTime = document.getElementById('outTime').value;
   state.areaTour = document.getElementById('areaTour').value;
   state.areaWorked = document.getElementById('areaWorked').value;
   state.distName = document.getElementById('distName').value;
   state.managerName = document.getElementById('managerName').value;
+  document.getElementById('distNameWarn').style.display = state.distName.trim() ? 'none' : 'block';
   saveDraft();
   renderStats();
 }
@@ -308,6 +382,7 @@ function renderVisits(){
     const isDup = dupIdx !== -1;
     const contactWarn = (v.contact && !contactOk) || isDup;
     const statusWarn = v.parlour && v.parlour.trim() && !v.status;
+    const areaWarn = v.parlour && v.parlour.trim() && !v.area.trim();
     const card = document.createElement('div');
     card.className = 'visit-card';
     card.innerHTML = `
@@ -318,9 +393,11 @@ function renderVisits(){
       <label style="margin-top:0;">Parlour Name</label>
       <input type="text" list="parlourNamesList" value="${escapeHtml(v.parlour)}" placeholder="Parlour name (start typing to see past parlours)"
         onchange="updateVisitField(${idx},'parlour',this.value)">
-      <label>Area / Locality (specific to this parlour)</label>
+      <label>Area / Locality (specific to this parlour) *</label>
       <input type="text" value="${escapeHtml(v.area)}" placeholder="e.g. Teli Galli"
+        style="${areaWarn ? 'border-color:var(--warn);' : ''}"
         onchange="updateVisitField(${idx},'area',this.value)">
+      ${areaWarn ? '<div class="warn-text" style="margin-top:2px;">Enter the Area/Locality - required before submitting</div>' : ''}
       <label>Parlour Status</label>
       <select style="${statusWarn ? 'border-color:var(--warn);' : ''}"
         onchange="updateVisitField(${idx},'status',this.value)">
@@ -358,17 +435,15 @@ function escapeHtml(s){
 }
 
 function renderStats(){
-  const tc = state.visits.filter(v=>v.parlour && v.parlour.trim()!=='').length;
-  const pc = state.visits.filter(v=>Object.values(v.items).reduce((a,b)=>a+b,0) > 0).length;
-  let sale = 0;
-  state.visits.forEach(v=>{
-    for(const [pIdx, qty] of Object.entries(v.items)){
-      sale += PRODUCTS[pIdx].price * qty;
-    }
-  });
-  document.getElementById('statTC').textContent = tc;
-  document.getElementById('statPC').textContent = pc;
-  document.getElementById('statSale').textContent = Math.round(sale).toLocaleString('en-IN');
+  const today = computeTodayStats();
+  document.getElementById('statTC').textContent = today.tc;
+  document.getElementById('statPC').textContent = today.pc;
+  document.getElementById('statSale').textContent = Math.round(today.sale).toLocaleString('en-IN');
+
+  const cum = computeCumulative();
+  document.getElementById('cumTC').textContent = cum.tc;
+  document.getElementById('cumPC').textContent = cum.pc;
+  document.getElementById('cumSale').textContent = Math.round(cum.sale).toLocaleString('en-IN');
 }
 
 // ---------------- Item Picker Modal ----------------
@@ -455,9 +530,18 @@ function monAbbr(m){
 function generateFile(){
   if(!state.name.trim()){ alert('Please enter your name.'); return; }
   if(!state.date){ alert('Please select the date.'); return; }
+  if(!state.distName || !state.distName.trim()){
+    document.getElementById('distNameWarn').style.display = 'block';
+    alert('Distributor Name is required before you can submit.');
+    return;
+  }
   if(state.visits.length === 0){ alert('Please add at least one parlour visit.'); return; }
   for(const [i,v] of state.visits.entries()){
     if(!v.parlour.trim()){ alert('Every visit needs a Parlour Name.'); return; }
+    if(!v.area || !v.area.trim()){
+      alert(`Visit ${i+1} (${v.parlour}) needs an Area/Locality entered before you can submit.`);
+      return;
+    }
     if(!v.status || !v.status.trim()){
       alert(`Visit ${i+1} (${v.parlour}) needs a Parlour Status selected before you can submit.`);
       return;
@@ -521,6 +605,11 @@ function generateFile(){
   aoa[7][0] = 'AREA WORKED ';
   aoa[7][2] = state.areaWorked;
 
+  aoa[8][0] = 'IN TIME';
+  aoa[8][2] = state.inTime;
+  aoa[8][4] = 'OUT TIME';
+  aoa[8][5] = state.outTime;
+
   aoa[9][0] = 'DISTRIBUTORS NAME ';
   aoa[9][2] = state.distName;
   aoa[9][4] = 'T.C.';
@@ -530,6 +619,14 @@ function generateFile(){
   aoa[10][2] = state.managerName;
   aoa[10][4] = 'P.C.';
   aoa[10][5] = pc;
+
+  const cum = computeCumulative();
+  aoa[11][0] = 'CUMULATIVE T.C. (MONTH)';
+  aoa[11][2] = cum.tc;
+  aoa[11][4] = 'CUMULATIVE P.C. (MONTH)';
+  aoa[11][5] = cum.pc;
+  aoa[11][7] = 'CUMULATIVE SALE (MONTH)';
+  aoa[11][8] = cum.sale;
 
   // product header rows 13,14,15 -> index 12,13,14 ; product cols start at col E -> index 4
   PRODUCTS.forEach((p, idx)=>{
@@ -602,8 +699,11 @@ function markSubmitted(filename){
   // today's report instead of creating a duplicate. Only "Start New Day"
   // clears the form, and that's a deliberate, explicit action.
   state.hasSubmitted = true;
+  const today = computeTodayStats();
+  recordDayInLog(state.date, today.tc, today.pc, today.sale);
   saveDraft();
   renderStartNewDayButton();
+  renderStats();
   showToast(`Saved: ${filename}. Made a mistake? Fix it and tap Generate & Share again.`);
 }
 function startNewDay(){
